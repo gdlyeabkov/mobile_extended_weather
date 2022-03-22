@@ -75,6 +75,47 @@ export function MainActivity({ navigation }) {
 
   const [cityTemp, setCityTemp] = useState('')
 
+  const dayOfWeekLabels = [
+    'вс',
+    'пн',
+    'вт',
+    'ср',
+    'чт',
+    'пт',
+    'сб'
+  ]
+
+  const monthLabels = [
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря'
+  ]
+
+  const [cityHumidity, setCityHumidity] = useState('0')
+
+  const [cityWindSpeed, setCityWindSpeed] = useState('0')
+
+  const [citySunRise, setCitySunRise] = useState(0)
+
+  const [citySunSet, setCitySunSet] = useState(0)
+
+  const [cityLat, setCityLat] = useState(0)
+
+  const [cityLon, setCityLon] = useState(0)
+
+  const [cityAqi, setCityAqi] = useState(0)
+
+  const [cityUvi, setCityUvi] = useState(0)
+
   const asideNavigationView = () => (
     <View
       style={styles.window}
@@ -116,7 +157,9 @@ export function MainActivity({ navigation }) {
         style={styles.rowBetween}
       >
         <Text>
-          Москва
+          {
+            cityName
+          }
         </Text>
         <View
           style={styles.rowCenter}
@@ -200,6 +243,66 @@ export function MainActivity({ navigation }) {
   }
 
 
+  const getCitySunSet = () => {
+    const date = new Date()
+    date.setMilliseconds(citySunSet)
+    let isAddPrefix = false
+    let hours = date.getHours()
+    isAddPrefix = hours < 10
+    if (isAddPrefix) {
+      hours = `0${hours}`
+    }
+    let minutes = date.getMinutes()
+    isAddPrefix = minutes < 10
+    if (isAddPrefix) {
+      minutes = `0${minutes}`
+    }
+    return `${hours}:${minutes}`
+  }
+
+  const getCitySunRise = () => {
+    const date = new Date()
+    date.setMilliseconds(citySunRise)
+    let isAddPrefix = false
+    let hours = date.getHours()
+    isAddPrefix = hours < 10
+    if (isAddPrefix) {
+      hours = `0${hours}`
+    }
+    let minutes = date.getMinutes()
+    isAddPrefix = minutes < 10
+    if (isAddPrefix) {
+      minutes = `0${minutes}`
+    }
+    return `${hours}:${minutes}`
+  }
+
+  const getCurrentDateTime = () => {
+    // пн, 21 марта 17:27
+    const currentDateTime = new Date()
+    const dayOfWeek = currentDateTime.getDay()
+    const dayOfWeekLabel = dayOfWeekLabels[dayOfWeek]
+    const monthIndex = currentDateTime.getMonth()
+    const monthLabel = monthLabels[monthIndex]
+    let day = currentDateTime.getDate()
+    let isAddPrefix = false
+    isAddPrefix = day < 10
+    if (isAddPrefix) {
+      day = `0${day}`
+    }
+    let hours = currentDateTime.getHours()
+    isAddPrefix = hours < 10
+    if (isAddPrefix) {
+      hours = `0${hours}`
+    }
+    let minutes = currentDateTime.getMinutes()
+    isAddPrefix = minutes < 10
+    if (isAddPrefix) {
+      minutes = `0${minutes}`
+    }
+    return `${dayOfWeekLabel}, ${day} ${monthLabel} ${hours}:${minutes}`
+  }
+
   useEffect(async () => {
     const isNotInit = !isInit
     if (isNotInit) {
@@ -211,22 +314,36 @@ export function MainActivity({ navigation }) {
       }
       let location = await Location.getCurrentPositionAsync({})
       setLocation(location)
-      // const address = await Location.reverseGeocodeAsync({ latitude: location.coords.longitude, longitude: location.coords.latitude })
-      // const address = await Geocoder.geocodePosition({lat: location.coords.latitude, lng: location.coords.longitude})
-      const address = await Location.reverseGeocodeAsync(location.coords)
-      console.log(`address: ${Object.values(address[0])}`)
-      const countAdresses = address.length
+      const addresses = await Location.reverseGeocodeAsync(location.coords)
+      const countAdresses = addresses.length
       const isHaveAdresses = countAdresses >= 1
       if (isHaveAdresses) {
-        const city = address[0]
-        setCityName(city.subregion)
+        const city = addresses[0]
+        setCityName(city.city)
       }
       fetch(`http://api.openweathermap.org/data/2.5/weather?q=${'Moscow'}&appid=8ced8d3f02f94ff154bc4ddb60fa72a9&units=metric`, {
         mode: 'cors',
         method: 'GET'
       }).then(response => response.json()).then((json) => {
-        console.log(`json: ${json.main.temp}`)
         setCityTemp(json.main.temp)
+        setCityHumidity(json.main.humidity)
+        setCityWindSpeed(json.wind.speed)
+        setCitySunRise(json.sys.sunrise)
+        setCitySunSet(json.sys.sunset)
+        setCityLat(json.coord.lat)
+        setCityLon(json.coord.lon)
+        fetch(`http://api.openweathermap.org/data/2.5/air_pollution?lat=${cityLat}&lon=${cityLon}&appid=8ced8d3f02f94ff154bc4ddb60fa72a9`, {
+          mode: 'cors',
+          method: 'GET'
+        }).then(response => response.json()).then((json) => {
+          setCityAqi(json.list[0].main.aqi)
+          fetch(`http://api.openweathermap.org/data/2.5/uvi?appid=8ced8d3f02f94ff154bc4ddb60fa72a9&amp;lat=${cityLat}&amp;lon=${cityLon}`, {
+            mode: 'cors',
+            method: 'GET'
+          }).then(response => response.json()).then((json) => {
+            setCityUvi(json.value)
+          })
+        })
       })
     }
   }, [])
@@ -251,7 +368,9 @@ export function MainActivity({ navigation }) {
               }
             </Text>
             <Text>
-              пн, 21 марта 17:27
+              {
+                getCurrentDateTime()
+              }
             </Text>
             <View
               style={styles.rowBetween}
@@ -300,84 +419,169 @@ export function MainActivity({ navigation }) {
                   size={24}
                   color="black"
                 />
-                <Text>
-                  0°
+                <Text
+                  style={styles.boldLabel}
+                >
+                  {
+                    `${cityTemp}°`
+                  }
                 </Text>
-                <Text>
-                  0%
-                </Text>
+                <View
+                  style={styles.rowBetween}
+                >
+                  <Fontisto
+                    name="blood-drop"
+                    size={10}
+                    color="black"
+                  />
+                  <Text
+                    style={styles.marginedElement}
+                  >
+                    {
+                      `${cityHumidity}%`
+                    }
+                  </Text>
+                </View>
               </View>
               <View
                 style={styles.columnCenter}
               >
                 <Text>
-                  15:00
+                  16:00
                 </Text>
                 <Ionicons
                   name="sunny"
                   size={24}
                   color="black"
                 />
-                <Text>
-                  0°
+                <Text
+                  style={styles.boldLabel}
+                >
+                  {
+                    `${cityTemp}°`
+                  }
                 </Text>
-                <Text>
-                  0%
-                </Text>
+                <View
+                  style={styles.rowBetween}
+                >
+                  <Fontisto
+                    name="blood-drop"
+                    size={10}
+                    color="black"
+                  />
+                  <Text
+                    style={styles.marginedElement}
+                  >
+                    {
+                      `${cityHumidity}%`
+                    }
+                  </Text>
+                </View>
               </View>
               <View
                 style={styles.columnCenter}
               >
                 <Text>
-                  15:00
+                  17:00
                 </Text>
                 <Ionicons
                   name="sunny"
                   size={24}
                   color="black"
                 />
-                <Text>
-                  0°
+                <Text
+                  style={styles.boldLabel}
+                >
+                  {
+                    `${cityTemp}°`
+                  }
                 </Text>
-                <Text>
-                  0%
-                </Text>
+                <View
+                  style={styles.rowBetween}
+                >
+                  <Fontisto
+                    name="blood-drop"
+                    size={10}
+                    color="black"
+                  />
+                  <Text
+                    style={styles.marginedElement}
+                  >
+                    {
+                      `${cityHumidity}%`
+                    }
+                  </Text>
+                </View>
               </View>
               <View
                 style={styles.columnCenter}
               >
                 <Text>
-                  15:00
+                  18:00
                 </Text>
                 <Ionicons
                   name="sunny"
                   size={24}
                   color="black"
                 />
-                <Text>
-                  0°
+                <Text
+                  style={styles.boldLabel}
+                >
+                  {
+                    `${cityTemp}°`
+                  }
                 </Text>
-                <Text>
-                  0%
-                </Text>
+                <View
+                  style={styles.rowBetween}
+                >
+                  <Fontisto
+                    name="blood-drop"
+                    size={10}
+                    color="black"
+                  />
+                  <Text
+                    style={styles.marginedElement}
+                  >
+                    {
+                      `${cityHumidity}%`
+                    }
+                  </Text>
+                </View>
               </View>
               <View
                 style={styles.columnCenter}
               >
                 <Text>
-                  15:00
+                  19:00
                 </Text>
                 <Ionicons
                   name="sunny"
                   size={24}
                   color="black"
                 />
-                <Text>
-                  0°
+                <Text
+                  style={styles.boldLabel}
+                >
+                  {
+                    `${cityTemp}°`
+                  }
                 </Text>
-                <Text>
-                  0%
-                </Text>
+                <View
+                  style={styles.rowBetween}
+                >
+                  <Fontisto
+                    name="blood-drop"
+                    size={10}
+                    color="black"
+                  />
+                  <Text
+                    style={styles.marginedElement}
+                  >
+                    {
+                      `${cityHumidity}%`
+                    }
+                  </Text>
+                </View>
               </View>
             </View>
             <View
@@ -403,7 +607,9 @@ export function MainActivity({ navigation }) {
                 Вчера
               </Text>
               <Text>
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -425,7 +631,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -446,7 +654,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -468,7 +678,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -489,7 +701,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -511,7 +725,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -532,7 +748,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -554,7 +772,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -575,7 +795,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -597,7 +819,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -618,7 +842,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -640,7 +866,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -661,7 +889,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -683,7 +913,9 @@ export function MainActivity({ navigation }) {
                 <Text
                   style={styles.marginedElement}
                 >
-                  0%
+                  {
+                    `${cityHumidity}%`
+                  }
                 </Text>
               </View>
               <View
@@ -704,7 +936,9 @@ export function MainActivity({ navigation }) {
               <Text
                 style={styles.boldLabel}
               >
-                0°
+                {
+                  `${cityTemp}°`
+                }
               </Text>
             </View>
             <View
@@ -770,7 +1004,9 @@ export function MainActivity({ navigation }) {
                   <Text
                     style={styles.boldLabel}
                   >
-                    Низкий
+                    {
+                      `${cityUvi}`
+                    }
                   </Text>
                 </View>
                 <View
@@ -802,7 +1038,9 @@ export function MainActivity({ navigation }) {
                   <Text
                     style={styles.boldLabel}
                   >
-                    00:00
+                    {
+                      getCitySunRise()
+                    }
                   </Text>
                 </View>
                 <View
@@ -834,7 +1072,9 @@ export function MainActivity({ navigation }) {
                   <Text
                     style={styles.boldLabel}
                   >
-                    00:00
+                    {
+                      getCitySunSet()
+                    }
                   </Text>
                 </View>
                 <View
@@ -866,7 +1106,9 @@ export function MainActivity({ navigation }) {
                   <Text
                     style={styles.boldLabel}
                   >
-                    0 км/ч
+                    {
+                      `${cityWindSpeed} км/ч`
+                    }
                   </Text>
                 </View>
                 <View
@@ -898,7 +1140,9 @@ export function MainActivity({ navigation }) {
                   <Text
                     style={styles.boldLabel}
                   >
-                    Хорошее(0)
+                    {
+                      `${cityAqi}`
+                    }
                   </Text>
                 </View>
                 <View
@@ -930,7 +1174,9 @@ export function MainActivity({ navigation }) {
                   <Text
                     style={styles.boldLabel}
                   >
-                    40%
+                    {
+                      cityHumidity
+                    }%
                   </Text>
                 </View>
                 <View
